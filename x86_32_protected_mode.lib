@@ -1,0 +1,55 @@
+; x86-32 protected mode constants
+; Derived from Yuan Yu @forest_yu
+; Orange's : an implementation of an operating system
+
+; Descriptor Type Code
+DA32                        equ 4000h
+DPL_0                       equ 00h ; ring 0
+DPL_1                       equ 20h ; ring 1
+DPL_2                       equ 40h ; ring 2
+DPL_3                       equ 60h ; ring 3
+; Data Segment Descriptor Type Code
+DataSegmentRead             equ 90h
+DataSegmentReadWrite        equ 92h
+DataSegmentReadWriteVisited equ 93h
+CodeSegmentX                equ 98h
+CodeSegmentXRead            equ 9Ah
+CodeSegmentXConsistent      equ 9Ch
+CodeSegmentXReadConsistent  equ 9Eh
+; Kernel Segment Descriptor Type Code
+LocalDescriptorTable        equ 82h
+TaskGate                    equ 85h
+TaskStatusSegment           equ 89h
+CallGate                    equ 8Ch
+InterruptGate               equ 8Eh
+TrapGate                    equ 8Fh
+; Selector Type Code
+RPL_0                       equ 0
+RPL_1                       equ 1
+RPL_2                       equ 2
+RPL_3                       equ 3
+TableIndicatorGlobal        equ 0
+TableIndicatorLocal         equ 4
+
+; Descriptor Factory
+
+%macro Descriptor 3
+; Descriptor(Base: dd, Limit: dd, Attr: dw)
+; sizeof(Descriptor) == 8
+  dw  %2 & 0FFFFh
+  dw  %1 & 0FFFFh
+  db  (%1 >> 16) & 0FFh
+  dw  ((%2 >> 8) & 0F00h) | (%3 & 0F0FFh)
+  db  (%1 >> 24) & 0FFh
+%endmacro
+
+; Gate Factory
+
+%macro Gate 4
+; Gate(Selector: dw, Offset: dd, DCount: db, Attr: db)
+; sizeof(Gate) == 8
+  dw  (%2 & 0FFFFh)
+  dw  %1
+  dw  (%3 & 1Fh) | ((%4 << 8) & 0FF00h)
+  dw  ((%2 >> 16) & 0FFFFh)
+%endmacro

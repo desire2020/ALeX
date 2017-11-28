@@ -1,0 +1,41 @@
+; FAT12 Definitions. Without the front jmp.
+
+nop
+; Institution name          size    8
+FAT12_InstitutionName       db      "ACMCLASS"
+; Bytes per sector          size    2
+FAT12_BytesPerSector        dw      512
+; Sector per cluster        size    1
+FAT12_SectorPerCluster      db      1
+; Reserved sector count     size    2
+FAT12_ReservedSectorCount   dw      1
+; Number of FATs            size    1
+FAT12_NumberOfFATs          db      2
+; Root entry count          size    2
+FAT12_RootEntryCount        dw      0xE0
+; Total sector (16Bit)      size    2
+FAT12_TotalSector16Bit      dw      0xB40
+; Media descriptor          size    1
+FAT12_MediaDescriptor       db      0xF0
+; FAT size (16Bit)          size    2
+FAT12_FATSize16Bit          dw      0x9
+; Sector per track          size    2
+FAT12_SectorPerTrack        dw      0x12
+; Number of heads           size    2
+FAT12_NumberOfHeads         dw      0x2
+; Hidden sector             size    2
+FAT12_HiddenSector          dw      0x0
+; Total sector (32Bit)      size    4
+FAT12_TotalSector32Bit      dw      0
+; Drive index               size    1
+FAT12_DriveIndex            db      0
+; Reserved byte             size    1
+FAT12_ReservedByte          db      0
+; Boot signature            size    1
+FAT12_BootSignature         db      0
+; Volumn ID                 size    4
+FAT12_VolumnID              dw      0
+; Volumn label              size    11
+FAT12_VolumnLabel           db      "ALeX v0.0.0"
+; File system type name     size    8
+FAT12_FileSystemTypeName    db      "FAT12"
