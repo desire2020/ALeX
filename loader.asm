@@ -33,6 +33,7 @@ mov     sp, BaseOfKernelStack
 mov     dh, 0                                     ;
 call    print_idx                                 ; print_idx(0)
 
+
 ; MemCheck
 mov		ebx, 0									  ;	$ebx = 0
 mov		di, bits16_MemoryCheckBuffer			  ;	[$es:$di] = MemoryCheckBuffer
