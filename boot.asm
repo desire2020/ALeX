@@ -1,13 +1,6 @@
 org     07c00h
 
-BaseOfStack             equ 07c00h
-BaseOfLoader            equ 09000h
-OffsetOfLoader          equ 0100h
-SectorOccupiedByRoot    equ 14
-SectorBaseOfRoot        equ 19
-SectorBaseFAT1          equ 1
-OffsetSectorNo          equ 1 + 2 * 9 - 2  ; SectorBase + NumFATs * FATSize - 2
-
+%include "memalloc.lib"
 
 jmp     short __start
 %include "FAT12.lib"
@@ -21,20 +14,28 @@ mov     es, ax
 mov     ss, ax
 mov     sp, BaseOfStack
 
+mov     ax, 0600h
+mov     bx, 0700h
+mov     cx, 0
+mov     dx, 0184fh
+int     10h                                       ; sys.graphics.clrscr()
+
+mov     dh, 0                                     ;
+call    print_idx                                 ; print_idx(0)
 xor     ah, ah
 xor     dl, dl
 int     13h                                       ; sys.floppy.call(sys.floppy.reset)
 
-mov     word [word_target_sector], SectorBaseOfRoot
-                                                  ; idx_of_root = SectorBaseOfRoot
+mov     word [wSectorNo], SectorIdxOfRoot
+                                                  ; idx_of_root = SectorIdxOfRoot
 .loop_start:                                      ; while True:
-    cmp     word [word_idx_of_root_sec], 0        ;     if idx_of_root == 0:
+    cmp     word [wCounterRootSec], 0             ;     if idx_of_root == 0:
     jz      .loop_loader_not_found                ;         throw LoaderNotFoundException()
-    dec     word [word_idx_of_root_sec]           ;     idx_of_root -= 1
+    dec     word [wCounterRootSec]                ;     idx_of_root -= 1
     mov     ax, BaseOfLoader                      ;     $es = BaseOfLoader
     mov     es, ax                                ;     base = BaseOfLoader
     mov     bx, OffsetOfLoader                    ;     offset = OffsetOfLoader
-    mov     ax, [word_target_sector]              ;     target_start = target_sector
+    mov     ax, [wSectorNo]                       ;     target_start = target_sector
     mov     cl, 1                                 ;     target_limit = 1
     call    read_sector                           ;     read_sector(sys.memory[base:offset],
                                                   ;                 target_start,
@@ -52,43 +53,83 @@ mov     word [word_target_sector], SectorBaseOfRoot
     mov     cx, 11                                ;             $cx = 11
 .loop_filename_check:                             ;             while True:
     cmp     cx, 0                                 ;                 if $cx == 0:
-    jz      .loop_loader_found                    ;                     throw LoaderFoundInterruption()
+    jz      .loop_loader_found                    ;                     throw LoaderFoundSignal()
     dec     cx                                    ;                 $cx -= 1
     lodsb                                         ;                 $al = sys.memory[$ds + $si]; $si += 1
     cmp     al, byte [es:di]                      ;                 if $al == sys.memory[$es + $di]:
-    jz      .loop_continue_check                  ;                     throw NameMatchInterruption()
+    jz      .loop_continue_check                  ;                     throw NameMatchSignal()
                                                   ;                 else:
     jmp     .loop_skip_current                    ;                     throw NameMismatchException()
 .loop_next_sector:                                ;         else:
-    inc     word [word_target_sector]             ;             target_sector += 1
+    add     word [wSectorNo], 1                   ;             target_sector += 1
     jmp     .loop_start                           ;             break
-.loop_continue_check:                             ; def Handler.NameMatchInterruption() @contextual:
-    inc     di                                    ;     $di += 1
-    jmp     .loop_filename_check                  ;     continue
+.loop_continue_check:
+    inc     di
+    jmp     .loop_filename_check
 .loop_skip_current:                               ; def Handler.NameMismatchException() @contextual:
-    and     di, 00001111111111100000b             ;     $di = ($di >> 5) << 5
-    add     di, 32                                ;     $di += 32
+    and     di, 0FFE0h                            ;     $di = ($di >> 5) << 5
+    add     di, 20h                               ;     $di += 32
     mov     si, LoaderFileName                    ;     $ds, $si = BaseOfBooter, LoaderFileName
     jmp     .loop_seek_loader                     ;     break
 .loop_loader_not_found:                           ; def Handler.LoaderNotFoundException():
     mov     dh, 2                                 ;
     call    print_idx                             ;     print_idx(2)
     jmp     $                                     ;     halt()
-.loop_loader_found:                               ; def.Handler.LoaderFoundInterruption():
-    mov     ax, SectorOccupiedByRoot              ;     $ax = SectorOccupiedByRoot
-    and     di, 00001111111111100000b             ;     $di = ($di >> 5) << 5
-    add     di, 00000000000000010110b             ;     $di += 26
+.loop_loader_found:                               ; def.Handler.LoaderFoundSignal():
+    mov     ax, RootDirSectors                    ;     
+    and     di, 0FFE0h                            ;     $di = ($di >> 5) << 5
+    add     di, 01Ah                              ;     $di += 26
     mov     cx, word [es:di]                      ;     $cx = sys.memory[$es:$di]
-    push    cx
+    push    cx                                    ;     sys.stack.write($cx)
 
     add     cx, ax
-    add     cx, OffsetSectorNo                    ;     $cx += SectorOccupiedByRoot + OffsetSectorNo    
-; Variable Segment
-word_idx_of_root_sec        dw SectorOccupiedByRoot
-word_target_sector          dw 0
-byte_is_odd                 db 0
+    add     cx, OffsetSectorNo                    ;     $cx += RootDirSectors + OffsetSectorNo    
+    mov     ax, BaseOfLoader                      ;     
+    mov     es, ax                                ;     $es = BaseOfLoader
+    mov     bx, OffsetOfLoader                    ;     $bx = OffsetOfLoader
+    mov     ax, cx                                ;     $ax = $cx
 
-LoaderFileName              db "PM      SYS"
+.loop_loop_read_loader:                           ;     while True:
+    push    ax
+    push    bx
+    mov     ah, 0Eh                               ;         write(sys.graphics, '.')
+    mov     al, '.'
+    mov     bl, 0Fh
+    int     10h
+    pop     bx
+    pop     ax      
+    
+
+
+    mov     cl, 1
+    call    read_sector                           ;         read_sector(sec_base = $ax, sec_num = 1, target_seg=[BaseOfLoader: OffsetOfLoader])
+
+    pop     ax                                    ;         sys.stack.read_and_pop($ax)
+    call    get_FAT_entry                         ;         $ax = get_FAT_entry(sector_no = $ax)
+
+    
+    cmp     ax, 0FFFh                             ;         if $ax == 0FFFh:
+    jz      .loop_read_loader_done                ;             break
+    push    ax                                    ;         sys.stack.write($ax)
+    add     ax, RootDirSectors                    ;         $ax += RootDirSectors
+    add     ax, OffsetSectorNo                    ;         $ax += OffsetSectorNo
+    add     bx, [FAT12_BytesPerSector]            ;         $bx = OffsetOfLoader + FAT12_BytesPerSector
+    jmp     .loop_loop_read_loader
+
+.loop_read_loader_done:
+    mov     dh, 1                                 
+    call    print_idx                             ;     print_idx(1)
+
+    jmp     BaseOfLoader: OffsetOfLoader          ;     sys.unsafe.goto(BaseOfLoader:OffsetOfLoader) 
+    mov     dh, 3                                 
+    call    print_idx                             ;     print_idx(3)
+    jmp     $
+; Variable Segment
+wCounterRootSec             dw RootDirSectors
+wSectorNo                   dw 0
+bIsOdd                      db 0
+
+LoaderFileName              db "PM-X86  SYS", 0
 
 MessageLength              equ 15
 
@@ -96,6 +137,7 @@ MessageBase:
 MessageBootStart            db "Booting        " ; String index 0
 MessageLoaderReady          db "Loader ready.  " ; String index 1
 MessageLoaderMiss           db "Loader missing." ; String index 2
+MessageDebug                db "Real Mode back." ; String index 3
 
 ; Utility Functions Segment
 print_idx:                                        ; def print_idx(mess_idx in $dh):
@@ -150,11 +192,12 @@ push    es
 push    bx
 push    ax
                                                   ;     global is_odd
-mov     ax, BaseOfLoader - 0100h
+mov     ax, BaseOfLoader
+sub     ax, 0100h
 mov     es, ax                                    ;     $es = BaseOfLoader - 0100h
 pop     ax
 
-mov     byte [byte_is_odd], 0                     ;     is_odd = False
+mov     byte [bIsOdd], 0                          ;     is_odd = False
 
 mov     bx, 3
 mul     bx                                        ;     _, $ax = sys.dualreg_unstack(ax * 3)
@@ -162,9 +205,10 @@ mov     bx, 2
 div     bx                                        ;     $dx, $ax = $ax % 2, $ax / 2
 cmp     dx, 0
 jz      .is_even                                  ;     if $dx != 0:
-mov     byte [byte_is_odd], 1                     ;         is_odd = True
-.is_even:                                         ;
-    mov     bx, FAT12_BytesPerSector              ;     $bx = FAT12_BytesPerSector
+mov     byte [bIsOdd], 1                          ;         is_odd = True
+.is_even:
+    xor     dx, dx                                ;
+    mov     bx, [FAT12_BytesPerSector]            ;     $bx = FAT12_BytesPerSector
     div     bx                                    ;     $ax, $dx = $ax / $bx, $ax % $bx
     push    dx
 
@@ -177,7 +221,7 @@ mov     byte [byte_is_odd], 1                     ;         is_odd = True
     add     bx, dx                                ;     $bx += $dx
 
     mov     ax, [es:bx]                           ;     $ax = sys.memory[$es:$bx]
-    cmp     byte [byte_is_odd], 1                 ;     if is_odd:
+    cmp     byte [bIsOdd], 1                      ;     if is_odd:
     jnz     .is_even_branch0
     shr     ax, 4                                 ;         $ax >>= 4
 
@@ -191,4 +235,3 @@ ret                                               ;     return $ax
 
 times (510 - ($-$$))        db 0
 dw      0xaa55
-times (1474560 - ($-$$))    db 0

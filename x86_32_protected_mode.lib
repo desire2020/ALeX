@@ -4,6 +4,7 @@
 
 ; Descriptor Type Code
 DA32                        equ 4000h
+DA32Limit                   equ 8000h
 DPL_0                       equ 00h ; ring 0
 DPL_1                       equ 20h ; ring 1
 DPL_2                       equ 40h ; ring 2
@@ -30,7 +31,13 @@ RPL_2                       equ 2
 RPL_3                       equ 3
 TableIndicatorGlobal        equ 0
 TableIndicatorLocal         equ 4
+; Paging
 
+PageExist                   equ 1
+PageReadExecute             equ 0
+PageReadWriteExecute        equ 2
+PageSys                     equ 0
+PageUser                    equ 4
 ; Descriptor Factory
 
 %macro Descriptor 3

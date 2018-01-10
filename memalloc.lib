@@ -1,0 +1,15 @@
+BaseOfStack             equ 07c00h
+BaseOfLoader            equ 09000h
+OffsetOfLoader          equ 0100h
+BaseOfKernelStack       equ 0100h
+
+PageDirBase             equ 100000h
+PageTableBase           equ 101000h
+
+BaseOfLoaderPhy         equ BaseOfLoader*10h
+
+BaseOfKernel            equ 08000h
+OffsetOfKernel          equ 0h
+
+BaseOfKernelPhy         equ BaseOfKernel * 10h
+KernelEntryAddrPhy      equ 030400h

@@ -1,5 +1,0 @@
-	org 07c00h
-
-StackBase:	equ	07c00h
-LoaderBase:	equ 	09000h
-	 
